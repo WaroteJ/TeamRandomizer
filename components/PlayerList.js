@@ -2,31 +2,18 @@ import React, { useEffect, useState } from 'react';
 import data from '../data/players.json';
 import styled from 'styled-components';
 import { getPositions } from '../utils/utils';
+import PlayerEdit from './PlayerEdit';
 
 const PlayerList = () => {
     const [players, setPlayers] = useState([]);
-    const [newPlayerName, setNewPlayerName] = useState('');
-    const [newPlayerPosition, setNewPlayerPosition] = useState('top');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [addPlayerOpen, setAddPlayerOpen] = useState(false);
+    const [selectedPlayer, setSelectedPlayer] = useState(null);
+
     const positions = getPositions();
     useEffect(() => {
         setPlayers(data);
     }, []);
-
-    const handleAddPlayer = async () => {
-        const res = await fetch('/api/addPlayer', {
-            method: 'POST',
-            body: JSON.stringify({ name: newPlayerName, position: newPlayerPosition }),
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-        const data = await res.json();
-        console.log(data);
-        setPlayers([...players, { name: newPlayerName, position: newPlayerPosition, id: data.player.id }]);
-        setNewPlayerName('');
-        setNewPlayerPosition('top');
-    }
 
     const handleDeletePlayer = async (index) => {
         const res = await fetch('/api/deletePlayer', {
@@ -43,108 +30,39 @@ const PlayerList = () => {
         setPlayers(newPlayers);
     }
 
-    const startEditPlayer = (index) => {
-        const newPlayers = [...players];
-        //set all players to not be editing
-        newPlayers.forEach((player) => {
-            player.isEditing = false;
-        });
-        newPlayers[index].isEditing = true;
-        setPlayers(newPlayers);
-    }
-
-    const handleUpdatePlayer = async (index, updatedPlayer) => {
-        const res = await fetch('/api/updatePlayer', {
-            method: 'POST',
-            body: JSON.stringify(updatedPlayer),
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-        const data = await res.json();
-        console.log(data);
-        const newPlayers = [...players];
-        newPlayers[index] = updatedPlayer;
-        setPlayers(newPlayers);
+    const closePlayerEdit = () => {
+        setAddPlayerOpen(false);
+        setSelectedPlayer(null);
     }
 
     return (
-        <Sidebar>
-            <PlayerListToggle $isSidebarOpen={isSidebarOpen} onClick={() => setIsSidebarOpen(!isSidebarOpen)}>{isSidebarOpen ? 'X' : '→'}</PlayerListToggle>
-            <PlayerListContainer $isSidebarOpen={isSidebarOpen}>
-                <PlayerListHeader>Player List</PlayerListHeader>
-                <Players>
-                    {players.map((player, index) => (
-                        <PlayerListItem key={index}>
-                            {player.isEditing ? (
-                                <>
-                                    <input
-                                        type="text"
-                                        value={player.name}
-                                        onChange={(e) => {
-                                            const newPlayers = [...players];
-                                            newPlayers[index].name = e.target.value;
-                                            setPlayers(newPlayers);
-                                        }}
-                                    />
-                                    <select
-                                        value={player.position}
-                                        onChange={(e) => {
-                                            const newPlayers = [...players];
-                                            newPlayers[index].position = e.target.value;
-                                            setPlayers(newPlayers);
-                                        }}
-                                    >
-                                        {Object.keys(positions).map((position) => (
-                                            <option key={position} value={position}>
-                                                {positions[position]}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        onClick={() => {
-                                            const newPlayers = [...players];
-                                            newPlayers[index].isEditing = false;
-                                            setPlayers(newPlayers);
-                                            handleUpdatePlayer(index, newPlayers[index]);
-                                        }}
-                                    >
-                                        Save
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <PlayerName>{player.name}</PlayerName>
-                                    <PlayerPosition>{player.position}</PlayerPosition>
-                                    <div>
-                                        <PlayerUpdateButton onClick={() => startEditPlayer(index)}>Edit</PlayerUpdateButton>
-                                        <PlayerDeleteButton onClick={() => handleDeletePlayer(index)}>Delete</PlayerDeleteButton>
-                                    </div>
-                                
-                                </>
-                            )}
-                        </PlayerListItem>
-                    ))}
-                </Players>
-                <PlayerFormContainer>
-                    <input
-                        type="text"
-                        value={newPlayerName}
-                        onChange={(e) => setNewPlayerName(e.target.value)}
-                        placeholder="Enter player name"
-                    />
-                    <select value={newPlayerPosition} onChange={(e) => setNewPlayerPosition(e.target.value)}>
-                        <option value="top">Top</option>
-                        <option value="jgl">Jungle</option>
-                        <option value="mid">Mid</option>
-                        <option value="adc">ADC</option>
-                        <option value="supp">Support</option>
-                    </select>
-                    <button onClick={handleAddPlayer}>Add Player</button>
-                </PlayerFormContainer>
-            </PlayerListContainer>
-
-        </Sidebar>
+        <>
+            <Sidebar>
+                <PlayerListToggle $isSidebarOpen={isSidebarOpen} onClick={() => setIsSidebarOpen(!isSidebarOpen)}>{isSidebarOpen ? 'X' : '→'}</PlayerListToggle>
+                <PlayerListContainer $isSidebarOpen={isSidebarOpen}>
+                    <PlayerListHeader>Player List</PlayerListHeader>
+                    <Players>
+                        {players.map((player, index) => (
+                            <PlayerListItem key={index}>
+                                <PlayerName>{player.name}</PlayerName>
+                                <PlayerPosition>{player.position}</PlayerPosition>
+                                <div>
+                                    <PlayerUpdateButton onClick={() => {
+                                            setSelectedPlayer(player);
+                                            setAddPlayerOpen(true);
+                                        }}>
+                                        Edit
+                                    </PlayerUpdateButton>
+                                    <PlayerDeleteButton onClick={() => handleDeletePlayer(index)}>Delete</PlayerDeleteButton>
+                                </div>
+                            </PlayerListItem>
+                        ))}
+                    </Players>
+                    <PlayerAddButton onClick={() => setAddPlayerOpen(true)}>Add Player</PlayerAddButton>
+                </PlayerListContainer>
+            </Sidebar>
+            <PlayerEdit playerData={selectedPlayer} isOpened={addPlayerOpen} close={closePlayerEdit} />
+        </>
     );
 };
 
@@ -253,6 +171,20 @@ const PlayerUpdateButton = styled.button`
 `;
 
 const PlayerDeleteButton = styled.button`
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid ${props => props.theme.borderColor};
+    background-color: transparent;
+    cursor: pointer;
+    color: ${props => props.theme.textColor};
+    transition: all 0.3s ease-in-out;
+    &:hover {
+        background-color: ${props => props.theme.hoverColor};
+    }
+`;
+
+const PlayerAddButton = styled.button`
     font-size: 0.75rem;
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
